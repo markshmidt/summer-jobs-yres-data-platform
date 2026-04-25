@@ -1,0 +1,26 @@
+# Environment and secrets
+.env
+google-credentials.json
+
+# Airflow logs
+logs/
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+postgres-data/
+
+CLAUDE.md
