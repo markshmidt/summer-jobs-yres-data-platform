@@ -11,10 +11,18 @@ x-airflow-common: &airflow-common
     AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION: 'true'
     AIRFLOW__CORE__LOAD_EXAMPLES: 'false'
     AIRFLOW__WEBSERVER__SECRET_KEY: 'csj-pipeline-secret-key'
+    AIRFLOW__SMTP__SMTP_HOST: 'smtp.gmail.com'
+    AIRFLOW__SMTP__SMTP_PORT: '587'
+    AIRFLOW__SMTP__SMTP_STARTTLS: 'true'
+    AIRFLOW__SMTP__SMTP_SSL: 'false'
+    AIRFLOW__SMTP__SMTP_USER: ${SMTP_USER}
+    AIRFLOW__SMTP__SMTP_PASSWORD: ${SMTP_PASSWORD}
+    AIRFLOW__SMTP__SMTP_MAIL_FROM: ${SMTP_USER}
     DATABRICKS_HOST: ${DATABRICKS_HOST}
     DATABRICKS_TOKEN: ${DATABRICKS_TOKEN}
     DATABRICKS_SQL_WAREHOUSE_ID: ${DATABRICKS_SQL_WAREHOUSE_ID}
     GOOGLE_SHEET_ID: ${GOOGLE_SHEET_ID}
+    ALERT_EMAIL: ${ALERT_EMAIL}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./notebooks:/opt/airflow/notebooks

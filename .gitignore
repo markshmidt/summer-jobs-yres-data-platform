@@ -1,7 +1,7 @@
 # Environment and secrets
 .env
 google-credentials.json
-
+.claude/
 # Airflow logs
 logs/
 
