@@ -165,6 +165,12 @@ def run_bronze(**context):
         f"{NOTEBOOK_BASE}/01_bronze_ingestion",
         parameters={"input_path": f"dbfs:{DBFS_UPLOAD_PATH}"},
     )
+def run_silver(**context):
+    """Triggers the silver cleaning notebook, passing the DBFS parquet path."""
+    _run_notebook(
+        f"{NOTEBOOK_BASE}/02_silver_cleaning",
+        parameters={"input_path": f"dbfs:{DBFS_UPLOAD_PATH}"},
+    )
 
 
 # DAG definition
@@ -197,5 +203,9 @@ with DAG(
         task_id="bronze_ingestion",
         python_callable=run_bronze,
     )
+    silver = PythonOperator(
+        task_id="silver_cleaning",
+        python_callable=run_silver,
+    )
 
-    extract_upload >> bronze
+    extract_upload >> bronze >> silver
