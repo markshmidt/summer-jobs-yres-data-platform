@@ -47,12 +47,17 @@ df_with_salary = df_typed.withColumn(
 
 # COMMAND ----------
 
-# --- Data quality checks ---
-# Flag rows that have issues but keep them in the table (soft deletes, not hard).
-# The _dq_flag column marks problematic rows for downstream filtering.
+# Assign a unique row ID — source data has no grant ID, so identical-looking rows
+# are separate grants 
+df_with_id = df_with_salary.withColumn("row_id", F.monotonically_increasing_id())
+
+# COMMAND ----------
+
+# Data quality checks — flag suspicious rows but keep them in the table.
+# The _dq_flags array marks problematic rows for downstream filtering.
 
 df_flagged = (
-    df_with_salary
+    df_with_id
     .withColumn("_dq_flags", F.array())
 
     # Null program year — likely a parsing issue
