@@ -1,22 +1,34 @@
+"""
+Test connectivity to Databricks and Google Sheets.
+
+Usage:
+    source .venv/bin/activate
+    python -m pytest tests/test_connections.py -v
+"""
+
 import os
 import json
 import urllib.request
 import pytest
 import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from google.oauth2.service_account import Credentials
+from dotenv import load_dotenv
 
-GOOGLE_CREDS_PATH = os.environ.get(
-    "GOOGLE_APPLICATION_CREDENTIALS", "/opt/airflow/google-credentials.json"
-)
+load_dotenv()
+
+PROJECT_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+GOOGLE_CREDS_PATH = os.path.join(PROJECT_ROOT, "google-credentials.json")
 
 
 @pytest.fixture
 def gsheets_client():
-    scope = [
-        "https://spreadsheets.google.com/feeds",
-        "https://www.googleapis.com/auth/drive",
-    ]
-    creds = ServiceAccountCredentials.from_json_keyfile_name(GOOGLE_CREDS_PATH, scope)
+    creds = Credentials.from_service_account_info(
+        json.load(open(GOOGLE_CREDS_PATH)),
+        scopes=[
+            "https://www.googleapis.com/auth/spreadsheets.readonly",
+            "https://www.googleapis.com/auth/drive.readonly",
+        ],
+    )
     return gspread.authorize(creds)
 
 
@@ -63,11 +75,13 @@ class TestGoogleSheetsConnection:
 
     def test_sheet_has_expected_columns(self, gsheets_client):
         sheet = gsheets_client.open_by_key(os.environ["GOOGLE_SHEET_ID"])
-        headers = sheet.sheet1.row_values(1)
-        assert len(headers) > 0
+        ws = sheet.worksheet("AB, BC, ON")
+        headers = ws.row_values(1)
+        assert len(headers) == 6
         assert "Amount Paid" in headers[4] or "Montant" in headers[4]
 
     def test_sheet_has_data_rows(self, gsheets_client):
         sheet = gsheets_client.open_by_key(os.environ["GOOGLE_SHEET_ID"])
-        all_values = sheet.sheet1.get_all_values()
+        ws = sheet.worksheet("AB, BC, ON")
+        all_values = ws.get_all_values()
         assert len(all_values) > 1, "Sheet has no data rows beyond the header"

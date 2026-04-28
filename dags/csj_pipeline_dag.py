@@ -73,8 +73,8 @@ def extract_and_load_bronze(**context):
     worksheet = sheet.worksheet("AB, BC, ON")
     data = worksheet.get_all_values()
 
-    header = data[0]
-    rows = data[1:]
+    header = data[0][:6]
+    rows = [row[:6] for row in data[1:]]
     print(f"Extracted {len(rows)} rows from Google Sheets")
 
     # Create bronze schema and table
@@ -100,7 +100,7 @@ def extract_and_load_bronze(**context):
     _run_sql("TRUNCATE TABLE bronze.raw_funding")
 
     # Insert in batches 
-    batch_size = 500
+    batch_size = 2000
     for i in range(0, len(rows), batch_size):
         batch = rows[i : i + batch_size]
         values_list = []

@@ -43,7 +43,9 @@ def raw_df():
     gc = gspread.authorize(creds)
     sheet = gc.open_by_key("1NfZzvZ0YhizKE1cAID_mnkZwz5bO0icdw1Ax5tS6DWE")
     data = sheet.worksheet("AB, BC, ON").get_all_values()
-    df = pd.DataFrame(data[1:], columns=data[0])
+    header = data[0][:6]
+    rows = [row[:6] for row in data[1:]]
+    df = pd.DataFrame(rows, columns=header)
     df.to_parquet(PARQUET_CACHE, index=False)
     return df
 
@@ -69,8 +71,9 @@ def silver_df(raw_df):
 
 @pytest.fixture(scope="session")
 def gold_df(silver_df):
-    """Simulate gold layer: per-org per-riding per-year aggregation."""
-    valid = silver_df[silver_df["jobs_created"] > 0].copy()
+    """Simulate gold layer: per-org per-riding per-year aggregation ."""
+    valid = silver_df.dropna(subset=["program_year", "amount_paid"]).copy()
+    valid = valid[valid["amount_paid"] >= 0]
     gold = valid.groupby(["region", "riding", "program_year", "organization_name"]).agg(
         total_funding=("amount_paid", "sum"),
         total_jobs=("jobs_created", "sum"),
@@ -172,11 +175,12 @@ class TestGold:
 
     def test_no_negative_aggregations(self, gold_df):
         assert (gold_df["total_funding"] >= 0).all()
-        assert (gold_df["total_jobs"] > 0).all()
+        assert (gold_df["total_jobs"] >= 0).all()
 
     def test_avg_salary_matches(self, gold_df):
-        recalc = gold_df["total_funding"] / gold_df["total_jobs"]
-        diff = (gold_df["avg_salary"] - recalc).abs().max()
+        with_jobs = gold_df[gold_df["total_jobs"] > 0]
+        recalc = with_jobs["total_funding"] / with_jobs["total_jobs"]
+        diff = (with_jobs["avg_salary"] - recalc).abs().max()
         assert diff < 0.01, f"avg_salary doesn't match total_funding/total_jobs (diff={diff})"
 
     def test_three_provinces(self, gold_df):
