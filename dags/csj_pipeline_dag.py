@@ -171,6 +171,12 @@ def run_silver(**context):
         f"{NOTEBOOK_BASE}/02_silver_cleaning",
         parameters={"input_path": f"dbfs:{DBFS_UPLOAD_PATH}"},
     )
+def run_gold(**context):
+    """Triggers the gold aggregation notebook, passing the DBFS parquet path."""
+    _run_notebook(
+        f"{NOTEBOOK_BASE}/03_gold_aggregation",
+        parameters={"input_path": f"dbfs:{DBFS_UPLOAD_PATH}"},
+    )
 
 
 # DAG definition
@@ -207,5 +213,8 @@ with DAG(
         task_id="silver_cleaning",
         python_callable=run_silver,
     )
-
-    extract_upload >> bronze >> silver
+    gold = PythonOperator(
+        task_id="gold_aggregation",
+        python_callable=run_gold,
+    )
+    extract_upload >> bronze >> silver >> gold
