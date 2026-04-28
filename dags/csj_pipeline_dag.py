@@ -24,8 +24,7 @@ DATABRICKS_SQL_WAREHOUSE_ID = os.environ["DATABRICKS_SQL_WAREHOUSE_ID"]
 GOOGLE_SHEET_ID = os.environ["GOOGLE_SHEET_ID"]
 CREDENTIALS_PATH = "/opt/airflow/google-credentials.json"
 
-# Path to notebooks in Databricks Repos
-NOTEBOOK_BASE = "/Repos/masha.shmidt.04@gmail.com/summer-jobs-yres-data-platform/notebooks"
+NOTEBOOK_BASE = "/Workspace/Users/masha.shmidt.04@gmail.com/summer-jobs-yres-data-platform/notebooks"
 
 HEADERS = {"Authorization": f"Bearer {DATABRICKS_TOKEN}"}
 
