@@ -105,7 +105,7 @@ def extract_and_load_bronze(**context):
         batch = rows[i : i + batch_size]
         values_list = []
         for row in batch:
-            escaped = [v.replace("'", "''") for v in row]
+            escaped = [v.replace("\\", "\\\\").replace("'", "''") for v in row]
             values_str = ", ".join(f"'{v}'" for v in escaped)
             values_list.append(f"({values_str}, current_timestamp())")
 
@@ -128,15 +128,14 @@ def _run_notebook(notebook_path, parameters=None):
     then polls every 30s until it completes or fails.
     """
     run_payload = {
-        "new_cluster": {
-            "spark_version": "14.3.x-scala2.12",
-            "num_workers": 0,
-            "node_type_id": "i3.xlarge",
-        },
-        "notebook_task": {
-            "notebook_path": notebook_path,
-            "base_parameters": parameters or {},
-        },
+        "tasks": [{
+            "task_key": "notebook_run",
+            "notebook_task": {
+                "notebook_path": notebook_path,
+                "base_parameters": parameters or {},
+                "source": "WORKSPACE",
+            },
+        }],
     }
 
     # Submit the run
@@ -145,7 +144,9 @@ def _run_notebook(notebook_path, parameters=None):
         headers=HEADERS,
         json=run_payload,
     )
-    resp.raise_for_status()
+    if resp.status_code != 200:
+        print(f"Databricks API error: {resp.status_code} - {resp.text}")
+        resp.raise_for_status()
     run_id = resp.json()["run_id"]
     print(f"Submitted run {run_id} for {notebook_path}")
 
