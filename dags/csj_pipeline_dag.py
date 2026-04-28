@@ -166,17 +166,13 @@ def run_bronze(**context):
         parameters={"input_path": f"dbfs:{DBFS_UPLOAD_PATH}"},
     )
 def run_silver(**context):
-    """Triggers the silver cleaning notebook, passing the DBFS parquet path."""
-    _run_notebook(
-        f"{NOTEBOOK_BASE}/02_silver_cleaning",
-        parameters={"input_path": f"dbfs:{DBFS_UPLOAD_PATH}"},
-    )
+    """Triggers the silver cleaning notebook — reads from bronze Delta table."""
+    _run_notebook(f"{NOTEBOOK_BASE}/02_silver_cleaning")
+
+
 def run_gold(**context):
-    """Triggers the gold aggregation notebook, passing the DBFS parquet path."""
-    _run_notebook(
-        f"{NOTEBOOK_BASE}/03_gold_aggregation",
-        parameters={"input_path": f"dbfs:{DBFS_UPLOAD_PATH}"},
-    )
+    """Triggers the gold aggregation notebook — reads from silver Delta table."""
+    _run_notebook(f"{NOTEBOOK_BASE}/03_gold_aggregation")
 
 
 # DAG definition

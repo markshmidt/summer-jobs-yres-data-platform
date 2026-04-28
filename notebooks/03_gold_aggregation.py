@@ -1,6 +1,5 @@
 
-# Gold Layer: Aggregate clean silver data per organization per riding per year.
-# Keeps org-level detail — Power BI can roll up to riding or province level.
+# Gold Layer: Aggregate clean silver data per organization per riding per year
 
 # COMMAND ----------
 
@@ -16,7 +15,7 @@ print(f"Read {df_silver.count()} clean rows from silver.clean_funding")
 # COMMAND ----------
 
 # Aggregate per org per riding per year.
-# Same org can have multiple grants in the same riding/year — combine them.
+# Same org can have multiple grants in the same riding/year so we combine them into one row.
 df_org = (
     df_silver
     .groupBy("region", "riding", "program_year", "organization_name")
