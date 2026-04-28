@@ -9,9 +9,9 @@ from pyspark.sql.types import IntegerType, DoubleType
 # COMMAND ----------
 
 # Read raw data from the bronze Delta table
-df_bronze = spark.table("bronze.raw_funding")
+df_bronze = spark.table("csj_bronze.raw_funding")
 
-print(f"Read {df_bronze.count()} rows from bronze.raw_funding")
+print(f"Read {df_bronze.count()} rows from csj_bronze.raw_funding")
 
 # COMMAND ----------
 
@@ -103,17 +103,17 @@ df_flagged.filter(F.size("_dq_flags") > 0) \
 # COMMAND ----------
 
 # Write clean data to silver Delta table
-spark.sql("CREATE SCHEMA IF NOT EXISTS silver")
+spark.sql("CREATE SCHEMA IF NOT EXISTS csj_silver")
 
 df_flagged.write.format("delta") \
     .mode("overwrite") \
     .option("overwriteSchema", "true") \
-    .saveAsTable("silver.clean_funding")
+    .saveAsTable("csj_silver.clean_funding")
 
 # COMMAND ----------
 
 # Quick validation
-count = spark.table("silver.clean_funding").count()
-clean = spark.table("silver.clean_funding").filter(F.size("_dq_flags") == 0).count()
-print(f"Silver complete: {count} total rows, {clean} clean rows -> silver.clean_funding")
-display(spark.table("silver.clean_funding").limit(5))
+count = spark.table("csj_silver.clean_funding").count()
+clean = spark.table("csj_silver.clean_funding").filter(F.size("_dq_flags") == 0).count()
+print(f"Silver complete: {count} total rows, {clean} clean rows -> csj_silver.clean_funding")
+display(spark.table("csj_silver.clean_funding").limit(5))

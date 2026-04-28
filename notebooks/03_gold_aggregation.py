@@ -8,9 +8,9 @@ from pyspark.sql import functions as F
 # COMMAND ----------
 
 # Read clean data from silver, excluding flagged rows
-df_silver = spark.table("silver.clean_funding").filter(F.size("_dq_flags") == 0)
+df_silver = spark.table("csj_silver.clean_funding").filter(F.size("_dq_flags") == 0)
 
-print(f"Read {df_silver.count()} clean rows from silver.clean_funding")
+print(f"Read {df_silver.count()} clean rows from csj_silver.clean_funding")
 
 # COMMAND ----------
 
@@ -33,21 +33,21 @@ df_org = (
 # COMMAND ----------
 
 # Write to gold Delta table
-spark.sql("CREATE SCHEMA IF NOT EXISTS gold")
+spark.sql("CREATE SCHEMA IF NOT EXISTS csj_gold")
 
 df_org.write.format("delta") \
     .mode("overwrite") \
     .option("overwriteSchema", "true") \
-    .saveAsTable("gold.org_funding_summary")
+    .saveAsTable("csj_gold.org_funding_summary")
 
 # COMMAND ----------
 
 # Quick validation
-count = spark.table("gold.org_funding_summary").count()
-regions = spark.table("gold.org_funding_summary").select("region").distinct().count()
-years = spark.table("gold.org_funding_summary").select("program_year").distinct().count()
-multi_grant = spark.table("gold.org_funding_summary").filter(F.col("grant_count") > 1).count()
+count = spark.table("csj_gold.org_funding_summary").count()
+regions = spark.table("csj_gold.org_funding_summary").select("region").distinct().count()
+years = spark.table("csj_gold.org_funding_summary").select("program_year").distinct().count()
+multi_grant = spark.table("csj_gold.org_funding_summary").filter(F.col("grant_count") > 1).count()
 
-print(f"Gold complete: {count} rows ({regions} provinces, {years} years) -> gold.org_funding_summary")
+print(f"Gold complete: {count} rows ({regions} provinces, {years} years) -> csj_gold.org_funding_summary")
 print(f"Orgs with multiple grants combined: {multi_grant}")
-display(spark.table("gold.org_funding_summary").limit(10))
+display(spark.table("csj_gold.org_funding_summary").limit(10))

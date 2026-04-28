@@ -54,7 +54,7 @@ def _run_sql(statement):
 def extract_and_load_bronze(**context):
     """
     Reads all rows from the Google Sheet and writes them directly
-    into the bronze.raw_funding Delta table using the SQL Statement API.
+    into the csj_bronze.raw_funding Delta table using the SQL Statement API.
     No DBFS upload needed.
     """
     # Authenticate with Google Sheets using service account credentials
@@ -77,9 +77,9 @@ def extract_and_load_bronze(**context):
     print(f"Extracted {len(rows)} rows from Google Sheets")
 
     # Create bronze schema and table
-    _run_sql("CREATE SCHEMA IF NOT EXISTS bronze")
+    _run_sql("CREATE SCHEMA IF NOT EXISTS csj_bronze")
     _run_sql("""
-        CREATE TABLE IF NOT EXISTS bronze.raw_funding (
+        CREATE TABLE IF NOT EXISTS csj_bronze.raw_funding (
             `Program Year / Année du programme` STRING,
             `Region / Région` STRING,
             `Activity Constituency` STRING,
@@ -96,7 +96,7 @@ def extract_and_load_bronze(**context):
     """)
 
     # Truncate before full reload
-    _run_sql("TRUNCATE TABLE bronze.raw_funding")
+    _run_sql("TRUNCATE TABLE csj_bronze.raw_funding")
 
     # Insert in batches 
     batch_size = 2000
@@ -110,13 +110,13 @@ def extract_and_load_bronze(**context):
 
         values_sql = ",\n".join(values_list)
         _run_sql(f"""
-            INSERT INTO bronze.raw_funding VALUES
+            INSERT INTO csj_bronze.raw_funding VALUES
             {values_sql}
         """)
 
         print(f"  Inserted rows {i + 1} to {min(i + batch_size, len(rows))}")
 
-    print(f"Bronze load complete: {len(rows)} rows -> bronze.raw_funding")
+    print(f"Bronze load complete: {len(rows)} rows -> csj_bronze.raw_funding")
 
 
 # Helper function to run a Databricks notebook via REST API
