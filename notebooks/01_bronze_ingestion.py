@@ -1,42 +1,26 @@
 
-# Bronze Layer: Raw ingestion from Parquet (uploaded by Airflow) into a Delta table.
+# Bronze Layer: Validation notebook.
+# Data is loaded into bronze.raw_funding by Airflow via the SQL Statement API.
+# Run this notebook manually to inspect the bronze table.
 
 # COMMAND ----------
 
+# Check row count and schema
+df = spark.table("bronze.raw_funding")
+print(f"Rows: {df.count()}")
+df.printSchema()
+
+# COMMAND ----------
+
+# Preview data
+display(spark.table("bronze.raw_funding").limit(10))
+
+# COMMAND ----------
+
+# Check ingestion timestamps — when was data last loaded?
 from pyspark.sql import functions as F
-
-# COMMAND ----------
-
-# Configurable input path — Airflow passes this when triggering the notebook.
-dbutils.widgets.text("input_path", "dbfs:/FileStore/csj_pipeline/raw_funding.parquet", "Input Parquet Path")
-
-# COMMAND ----------
-
-# Read the raw Parquet file uploaded by Airflow's extract task.
-input_path = dbutils.widgets.get("input_path")
-
-df_raw = spark.read.parquet(input_path)
-
-print(f"Read {df_raw.count()} rows from {input_path}")
-
-# COMMAND ----------
-
-# Add ingestion metadata
-df_bronze = df_raw.withColumn("_ingestion_timestamp", F.current_timestamp())
-
-# COMMAND ----------
-
-# Create the bronze schema if it doesn't exist yet.
-spark.sql("CREATE SCHEMA IF NOT EXISTS bronze")
-
-df_bronze.write.format("delta") \
-    .mode("overwrite") \
-    .option("overwriteSchema", "true") \
-    .saveAsTable("bronze.raw_funding")
-
-# COMMAND ----------
-
-# Quick validation
-count = spark.table("bronze.raw_funding").count()
-print(f"Bronze ingestion complete: {count} rows -> bronze.raw_funding")
-display(spark.table("bronze.raw_funding").limit(5))
+spark.table("bronze.raw_funding") \
+    .select(
+        F.min("_ingestion_timestamp").alias("earliest"),
+        F.max("_ingestion_timestamp").alias("latest"),
+    ).show(truncate=False)

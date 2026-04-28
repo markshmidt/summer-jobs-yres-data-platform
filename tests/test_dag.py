@@ -64,11 +64,8 @@ class TestDAGStructure:
     def test_dag_id(self, dag):
         assert dag.dag.dag_id == "csj_pipeline"
 
-    def test_has_extract_function(self, dag):
-        assert callable(dag.extract_and_upload)
-
-    def test_has_run_bronze_function(self, dag):
-        assert callable(dag.run_bronze)
+    def test_has_extract_and_load_function(self, dag):
+        assert callable(dag.extract_and_load_bronze)
 
     def test_has_run_silver_function(self, dag):
         assert callable(dag.run_silver)
@@ -76,11 +73,11 @@ class TestDAGStructure:
     def test_has_run_gold_function(self, dag):
         assert callable(dag.run_gold)
 
+    def test_has_sql_helper(self, dag):
+        assert callable(dag._run_sql)
+
     def test_notebook_base_path(self, dag):
         assert "/notebooks" in dag.NOTEBOOK_BASE
-
-    def test_dbfs_upload_path(self, dag):
-        assert dag.DBFS_UPLOAD_PATH.endswith(".parquet")
 
     def test_email_alerting_enabled(self, dag):
         assert dag.default_args["email_on_failure"] is True

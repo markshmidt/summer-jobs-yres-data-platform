@@ -21,7 +21,7 @@ df_renamed = (
     .withColumnRenamed("Program Year / Année du programme", "program_year")
     .withColumnRenamed("Region / Région", "region")
     .withColumnRenamed("Activity Constituency", "riding")
-    .withColumnRenamed("Organization Common Name / Nom commun de l'organisme", "organization_name")
+    .withColumnRenamed("Organization Common Name / Nom commun de l organisme", "organization_name")
     .withColumnRenamed("Amount Paid / Montant payé", "amount_paid")
     .withColumnRenamed("Confirmed Jobs Created / Emplois confirmés créés", "jobs_created")
 )

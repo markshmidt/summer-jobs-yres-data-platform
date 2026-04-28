@@ -1,13 +1,14 @@
 """
 CSJ Pipeline DAG — extracts Canada Summer Jobs data from Google Sheets
-and loads it into a Delta table on Databricks (bronze layer).
+and loads it through a medallion architecture on Databricks.
+
+Flow: Google Sheets → bronze Delta table (via SQL API) → silver → gold
+Triggered manually. Sends email alerts on task failure.
 """
 
 import os
 import json
 import time
-import base64
-import tempfile
 
 import gspread
 import pandas as pd
@@ -19,11 +20,9 @@ from datetime import datetime, timedelta
 
 DATABRICKS_HOST = os.environ["DATABRICKS_HOST"]
 DATABRICKS_TOKEN = os.environ["DATABRICKS_TOKEN"]
+DATABRICKS_SQL_WAREHOUSE_ID = os.environ["DATABRICKS_SQL_WAREHOUSE_ID"]
 GOOGLE_SHEET_ID = os.environ["GOOGLE_SHEET_ID"]
 CREDENTIALS_PATH = "/opt/airflow/google-credentials.json"
-
-# Where the Parquet file lands on DBFS before the bronze notebook reads it
-DBFS_UPLOAD_PATH = "/FileStore/csj_pipeline/raw_funding.parquet"
 
 # Path to notebooks in Databricks Repos
 NOTEBOOK_BASE = "/Repos/masha.shmidt.04@gmail.com/summer-jobs-yres-data-platform/notebooks"
@@ -31,13 +30,33 @@ NOTEBOOK_BASE = "/Repos/masha.shmidt.04@gmail.com/summer-jobs-yres-data-platform
 HEADERS = {"Authorization": f"Bearer {DATABRICKS_TOKEN}"}
 
 
-# Extract from Google Sheets and upload to DBFS 
+def _run_sql(statement):
+    """Execute a SQL statement on Databricks via the SQL Statement API."""
+    resp = requests.post(
+        f"{DATABRICKS_HOST}/api/2.0/sql/statements",
+        headers=HEADERS,
+        json={
+            "warehouse_id": DATABRICKS_SQL_WAREHOUSE_ID,
+            "statement": statement,
+            "wait_timeout": "50s",
+        },
+    )
+    resp.raise_for_status()
+    result = resp.json()
+    state = result.get("status", {}).get("state")
+    if state != "SUCCEEDED":
+        error = result.get("status", {}).get("error", {}).get("message", "Unknown error")
+        raise RuntimeError(f"SQL failed: {error}")
+    return result
 
-def extract_and_upload(**context):
+
+# Extract from Google Sheets and load into bronze Delta table via SQL
+
+def extract_and_load_bronze(**context):
     """
-    Reads all rows from the Google Sheet, converts to Parquet,
-    and uploads to Databricks DBFS via the REST API.
-    This runs inside the Airflow container — no Spark needed.
+    Reads all rows from the Google Sheet and writes them directly
+    into the bronze.raw_funding Delta table using the SQL Statement API.
+    No DBFS upload needed.
     """
     # Authenticate with Google Sheets using service account credentials
     scopes = [
@@ -54,52 +73,51 @@ def extract_and_upload(**context):
     worksheet = sheet.worksheet("AB, BC, ON")
     data = worksheet.get_all_values()
 
-    df = pd.DataFrame(data[1:], columns=data[0])
-    print(f"Extracted {len(df)} rows from Google Sheets")
+    header = data[0]
+    rows = data[1:]
+    print(f"Extracted {len(rows)} rows from Google Sheets")
 
-    with tempfile.NamedTemporaryFile(suffix=".parquet", delete=False) as tmp:
-        df.to_parquet(tmp.name, index=False)
-        tmp_path = tmp.name
+    # Create bronze schema and table
+    _run_sql("CREATE SCHEMA IF NOT EXISTS bronze")
+    _run_sql("""
+        CREATE TABLE IF NOT EXISTS bronze.raw_funding (
+            `Program Year / Année du programme` STRING,
+            `Region / Région` STRING,
+            `Activity Constituency` STRING,
+            `Organization Common Name / Nom commun de l organisme` STRING,
+            `Amount Paid / Montant payé` STRING,
+            `Confirmed Jobs Created / Emplois confirmés créés` STRING,
+            _ingestion_timestamp TIMESTAMP
+        ) USING DELTA
+        TBLPROPERTIES (
+            'delta.columnMapping.mode' = 'name',
+            'delta.minReaderVersion' = '2',
+            'delta.minWriterVersion' = '5'
+        )
+    """)
 
-    # Upload to DBFS using the streaming API
-    dbfs_api = f"{DATABRICKS_HOST}/api/2.0/dbfs"
+    # Truncate before full reload
+    _run_sql("TRUNCATE TABLE bronze.raw_funding")
 
-    # Create target directory on DBFS
-    requests.post(
-        f"{dbfs_api}/mkdirs",
-        headers=HEADERS,
-        json={"path": os.path.dirname(DBFS_UPLOAD_PATH)},
-    )
+    # Insert in batches 
+    batch_size = 500
+    for i in range(0, len(rows), batch_size):
+        batch = rows[i : i + batch_size]
+        values_list = []
+        for row in batch:
+            escaped = [v.replace("'", "''") for v in row]
+            values_str = ", ".join(f"'{v}'" for v in escaped)
+            values_list.append(f"({values_str}, current_timestamp())")
 
-    with open(tmp_path, "rb") as f:
-        file_bytes = f.read()
+        values_sql = ",\n".join(values_list)
+        _run_sql(f"""
+            INSERT INTO bronze.raw_funding VALUES
+            {values_sql}
+        """)
 
-    # Open a DBFS upload handle
-    handle_resp = requests.post(
-        f"{dbfs_api}/create",
-        headers=HEADERS,
-        json={"path": DBFS_UPLOAD_PATH, "overwrite": True},
-    )
-    handle_resp.raise_for_status()
-    handle = handle_resp.json()["handle"]
+        print(f"  Inserted rows {i + 1} to {min(i + batch_size, len(rows))}")
 
-    # Stream file
-    chunk_size = 1024 * 1024
-    for i in range(0, len(file_bytes), chunk_size):
-        chunk = base64.b64encode(file_bytes[i : i + chunk_size]).decode()
-        requests.post(
-            f"{dbfs_api}/add-block",
-            headers=HEADERS,
-            json={"handle": handle, "data": chunk},
-        ).raise_for_status()
-
-    # Finalize the upload
-    requests.post(
-        f"{dbfs_api}/close", headers=HEADERS, json={"handle": handle}
-    ).raise_for_status()
-
-    os.unlink(tmp_path)
-    print(f"Uploaded parquet to dbfs:{DBFS_UPLOAD_PATH}")
+    print(f"Bronze load complete: {len(rows)} rows -> bronze.raw_funding")
 
 
 # Helper function to run a Databricks notebook via REST API
@@ -108,7 +126,6 @@ def _run_notebook(notebook_path, parameters=None):
     """
     Submits a one-time notebook run to Databricks using the Jobs API,
     then polls every 30s until it completes or fails.
-    Uses a single-node cluster (num_workers=0) to minimize cost.
     """
     run_payload = {
         "new_cluster": {
@@ -157,14 +174,8 @@ def _run_notebook(notebook_path, parameters=None):
         time.sleep(30)
 
 
-# Trigger bronze notebook on Databricks
+# Trigger silver/gold notebooks on Databricks
 
-def run_bronze(**context):
-    """Triggers the bronze ingestion notebook, passing the DBFS parquet path."""
-    _run_notebook(
-        f"{NOTEBOOK_BASE}/01_bronze_ingestion",
-        parameters={"input_path": f"dbfs:{DBFS_UPLOAD_PATH}"},
-    )
 def run_silver(**context):
     """Triggers the silver cleaning notebook — reads from bronze Delta table."""
     _run_notebook(f"{NOTEBOOK_BASE}/02_silver_cleaning")
@@ -182,9 +193,9 @@ ALERT_EMAIL = os.environ.get("ALERT_EMAIL")
 default_args = {
     "owner": "mariia",
     "email": [ALERT_EMAIL],
-    "email_on_failure": True,   # sends email if a task fails
+    "email_on_failure": True,
     "email_on_retry": False,
-    "retries": 1,               # retry once before marking as failed
+    "retries": 1,
     "retry_delay": timedelta(minutes=5),
 }
 
@@ -192,25 +203,24 @@ with DAG(
     dag_id="csj_pipeline",
     default_args=default_args,
     start_date=datetime(2025, 1, 1),
-    schedule_interval=None,     # manual trigger only
+    schedule_interval=None,
     catchup=False,
     tags=["csj"],
 ) as dag:
 
-    extract_upload = PythonOperator(
-        task_id="extract_google_sheets_to_dbfs",
-        python_callable=extract_and_upload,
-    )
     bronze = PythonOperator(
-        task_id="bronze_ingestion",
-        python_callable=run_bronze,
+        task_id="extract_and_load_bronze",
+        python_callable=extract_and_load_bronze,
     )
+
     silver = PythonOperator(
         task_id="silver_cleaning",
         python_callable=run_silver,
     )
+
     gold = PythonOperator(
         task_id="gold_aggregation",
         python_callable=run_gold,
     )
-    extract_upload >> bronze >> silver >> gold
+
+    bronze >> silver >> gold
