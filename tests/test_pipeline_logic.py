@@ -58,6 +58,7 @@ def silver_df(raw_df):
         "program_year", "region", "riding",
         "organization_name", "amount_paid", "jobs_created",
     ]
+    df["region"] = df["region"].str.replace(r" / .*", "", regex=True)
     df["amount_paid"] = pd.to_numeric(df["amount_paid"], errors="coerce")
     df["jobs_created"] = pd.to_numeric(df["jobs_created"], errors="coerce")
     df["program_year"] = pd.to_numeric(df["program_year"], errors="coerce")

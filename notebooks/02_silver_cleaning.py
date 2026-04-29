@@ -28,9 +28,16 @@ df_renamed = (
 
 # COMMAND ----------
 
+# Clean bilingual region values to English only
+df_cleaned = df_renamed.withColumn("region",
+    F.regexp_replace(F.col("region"), " / .*", "")
+)
+
+# COMMAND ----------
+
 # Cast string columns to proper numeric types
 df_typed = (
-    df_renamed
+    df_cleaned
     .withColumn("program_year", F.col("program_year").cast(IntegerType()))
     .withColumn("amount_paid", F.col("amount_paid").cast(DoubleType()))
     .withColumn("jobs_created", F.col("jobs_created").cast(IntegerType()))
