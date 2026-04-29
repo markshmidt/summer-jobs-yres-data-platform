@@ -58,6 +58,30 @@ Aggregated per organization per riding per year. Only clean rows (no DQ flags) i
 
 This is the table Power BI connects to. 135,744 rows across 3 provinces, 9 years.
 
+## Power BI Dashboard
+
+The gold layer feeds a four-page Power BI report:
+
+### KPI Summary
+![KPI Cards](dashboards/kpis.png)
+
+Program-level headline metrics: **$199.5M** total funding distributed across **12,262** organizations, creating **46,433** summer jobs at an average of **$4,260** per position. Sparklines show trends over the 2017--2025 period.
+
+### Trends Over Years
+![Trends](dashboards/total_trends.png)
+
+Funding and job creation trends by province. Ontario dominates in absolute funding (peaking at $179M in 2021), while average salary per job has been steadily rising across all provinces -- from ~$2,900 in 2017 to ~$4,800 in 2025, reflecting minimum wage increases and program adjustments.
+
+### Province Breakdown
+![Province Breakdown](dashboards/breakdown.png)
+
+Animated scatter plot showing the relationship between total funding and jobs created per riding, with a year-over-year growth comparison. The strong linear correlation confirms funding scales proportionally with job creation. YOY growth shows a sharp spike in 2021-2022 (post-COVID recovery funding) followed by normalization.
+
+### Organization Insights
+![Organization Insights](dashboards/organisational_insights.png)
+
+Top-funded organizations across provinces -- STEM Camp and YMCA chapters lead in total funding. Grant count analysis reveals repeat recipients like Royal City Soccer Club (375+ grants) and STEM Camp (300+). Includes a focused view on YRES funding growth: from $10K in 2023 to $290K in 2025.
+
 ## Key Technical Decisions
 
 **SQL Statement API instead of DBFS upload.** Originally planned to upload Parquet files to DBFS, but Databricks disabled public DBFS root access. Switched to writing data directly via the SQL Statement API (`/api/2.0/sql/statements`), inserting 2,000 rows per batch. This actually simplified the architecture -- no intermediate files.
