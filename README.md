@@ -65,7 +65,7 @@ The gold layer feeds a four-page Power BI report:
 ### KPI Summary
 ![KPI Cards](dashboards/kpis.png)
 
-Program-level headline metrics: **$199.5M** total funding distributed across **12,262** organizations, creating **46,433** summer jobs at an average of **$4,260** per position. Sparklines show trends over the 2017--2025 period.
+All-time program totals alongside per-year sparklines: **$1.66B** total funding across the program's lifetime, supporting **49K** organizations and creating **451K** summer jobs. The sparklines with year slicer (2017--2025) let users drill into any period -- the 2025 snapshot shows $199.5M funding, 12,262 organizations, 46,433 jobs, and $4,260 average funding per position.
 
 ### Trends Over Years
 ![Trends](dashboards/total_trends.png)
